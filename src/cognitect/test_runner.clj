@@ -77,7 +77,12 @@
    (try
      (filter-vars! nses (var-filter options))
      (case reporter
-      :junit (with-junit-output (run-fn))
+      :junit 
+      (binding [test/*test-out* (java.io.StringWriter.)]
+       (let [results (with-junit-output (run-fn))]
+        (spit "test-results.xml" (str test/*test-out*))
+        (println "wrote results to results.xml")
+        results))
       :tap (with-tap-output (run-fn))
       (run-fn))
      (finally
