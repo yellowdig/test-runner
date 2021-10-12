@@ -81,7 +81,7 @@
       (binding [test/*test-out* (java.io.StringWriter.)]
        (let [results (with-junit-output (run-fn))]
         (spit "test-results.xml" (str test/*test-out*))
-        (println "wrote results to results.xml")
+        (println "wrote results to test-results.xml")
         results))
       :tap (with-tap-output (run-fn))
       (run-fn))
