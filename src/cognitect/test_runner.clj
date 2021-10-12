@@ -1,14 +1,11 @@
 (ns cognitect.test-runner
   (:require [clojure.tools.namespace.find :as find]
+            [clojure.test.junit :refer (with-junit-output)]
+            [clojure.test.tap :refer (with-tap-output)]
             [clojure.java.io :as io]
             [clojure.test :as test]
             [clojure.tools.cli :as cli])
   (:refer-clojure :exclude [test]))
-
-(defn- require-and-resolve
-  [sym]
-  (require (symbol (namespace sym)))
-  (resolve sym))
 
 (defn- ns-filter
   [{:keys [namespace namespace-regex]}]
@@ -66,21 +63,25 @@
 
 (defn test
   [options]
+  (println options)
   (let [dirs (or (:dir options)
                  #{"test"})
         nses (->> dirs
                   (map io/file)
                   (mapcat find/find-namespaces-in-dir))
         nses (filter (ns-filter options) nses)
-        report (require-and-resolve (:report options 'clojure.test/report))]
-    (println (format "\nRunning tests in %s" dirs))
-    (dorun (map require nses))
-    (try
-      (filter-vars! nses (var-filter options))
-      (with-redefs [test/report report]
-        (apply test/run-tests (filter contains-tests? nses)))
-      (finally
-        (restore-vars! nses)))))
+        reporter (:reporter options)
+        run-fn #(apply test/run-tests (filter contains-tests? nses))]
+   (println (format "\nRunning tests in %s" dirs))
+   (dorun (map require nses))
+   (try
+     (filter-vars! nses (var-filter options))
+     (case reporter
+      :junit (with-junit-output (run-fn))
+      :tap (with-tap-output (run-fn))
+      (run-fn))
+     (finally
+       (restore-vars! nses)))))
 
 (defn- parse-kw
   [^String s]
@@ -109,8 +110,8 @@
    ["-e" "--exclude KEYWORD" "Exclude tests with this metadata keyword."
     :parse-fn parse-kw
     :assoc-fn accumulate]
-   ["-R" "--report SYMBOL" "Use the provided report function"
-    :parse-fn symbol]
+   ["-R" "--reporter SYMBOL" "Set an alternative reporter, :junit or :tap"
+    :parse-fn parse-kw]
    ["-H" "--test-help" "Display this help message"]])
 
 (defn- help
